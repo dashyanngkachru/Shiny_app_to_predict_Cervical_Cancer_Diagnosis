@@ -11,42 +11,42 @@ The dataset was collected at 'Hospital Universitario de Caracas' in Caracas, Ven
 
 <b> Attribute Information: </b>
 
-(int) Age
-(int) Number of sexual partners
-(int) First sexual intercourse (age)
-(int) Num of pregnancies
-(bool) Smokes
-(bool) Smokes (years)
-(bool) Smokes (packs/year)
-(bool) Hormonal Contraceptives
-(int) Hormonal Contraceptives (years)
-(bool) IUD
-(int) IUD (years)
-(bool) STDs
-(int) STDs (number)
-(bool) STDs:condylomatosis
-(bool) STDs:cervical condylomatosis
-(bool) STDs:vaginal condylomatosis
-(bool) STDs:vulvo-perineal condylomatosis
-(bool) STDs:syphilis
-(bool) STDs:pelvic inflammatory disease
-(bool) STDs:genital herpes
-(bool) STDs:molluscum contagiosum
-(bool) STDs:AIDS
-(bool) STDs:HIV
-(bool) STDs:Hepatitis B
-(bool) STDs:HPV
-(int) STDs: Number of diagnosis
-(int) STDs: Time since first diagnosis
-(int) STDs: Time since last diagnosis
-(bool) Dx:Cancer
-(bool) Dx:CIN
-(bool) Dx:HPV
-(bool) Dx
-(bool) Hinselmann: target variable
-(bool) Schiller: target variable
-(bool) Cytology: target variable
-(bool) Biopsy: target variable
+(int) Age   
+(int) Number of sexual partners    
+(int) First sexual intercourse (age)       
+(int) Num of pregnancies      
+(bool) Smokes      
+(bool) Smokes (years)          
+(bool) Smokes (packs/year)        
+(bool) Hormonal Contraceptives        
+(int) Hormonal Contraceptives (years)          
+(bool) IUD            
+(int) IUD (years)     
+(bool) STDs     
+(int) STDs (number)       
+(bool) STDs:condylomatosis          
+(bool) STDs:cervical condylomatosis         
+(bool) STDs:vaginal condylomatosis       
+(bool) STDs:vulvo-perineal condylomatosis      
+(bool) STDs:syphilis        
+(bool) STDs:pelvic inflammatory disease          
+(bool) STDs:genital herpes        
+(bool) STDs:molluscum contagiosum        
+(bool) STDs:AIDS        
+(bool) STDs:HIV         
+(bool) STDs:Hepatitis B          
+(bool) STDs:HPV        
+(int) STDs: Number of diagnosis         
+(int) STDs: Time since first diagnosis           
+(int) STDs: Time since last diagnosis           
+(bool) Dx:Cancer        
+(bool) Dx:CIN          
+(bool) Dx:HPV        
+(bool) Dx        
+(bool) Hinselmann: target variable         
+(bool) Schiller: target variable        
+(bool) Cytology: target variable         
+(bool) Biopsy: target variable         
 
 
 <b> Source: </b>
