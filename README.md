@@ -1,1 +1,1 @@
-# Shiny_app_to_predict_Cervical_Cancer_Diagnosis
+# Shiny app to predict Cervical Cancer Diagnosis
