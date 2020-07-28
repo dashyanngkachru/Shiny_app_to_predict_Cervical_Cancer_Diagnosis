@@ -2,7 +2,7 @@
 
 ### To view the app, follow instructions below:
 
-<b> Kindly download the dataset (risk_factors_cervical_cancer.csv) by clicking on the dataset link below before clicking on the link to view the app </b>
+<b> Kindly download the dataset (risk_factors_cervical_cancer.csv) first by clicking on the dataset link below before clicking on the link to view the app </b>
 
 <b> 1. Dataset download link: https://archive.ics.uci.edu/ml/machine-learning-databases/00383/risk_factors_cervical_cancer.csv </b>
 
