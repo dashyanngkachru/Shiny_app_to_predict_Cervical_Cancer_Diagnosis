@@ -113,7 +113,7 @@ ui <- fluidPage(
 
 
 # Define server logic 
-server <- function(input, output, session){
+server <- function(input, output){
   
   # Upload csv
   cer_cancer <- reactive({
