@@ -4,6 +4,9 @@ library(ggplot2)
 library(dplyr)
 library(caret)
 library(caTools)
+library(e1071)
+library(kernlab)
+library(gbm)
 
 # Define UI for application
 ui <- fluidPage(
@@ -110,7 +113,7 @@ ui <- fluidPage(
 
 
 # Define server logic 
-server <- function(input, output){
+server <- function(input, output, session){
   
   # Upload csv
   cer_cancer <- reactive({
@@ -161,10 +164,14 @@ server <- function(input, output){
     cancer$Dx_HPV <- as.factor(cancer$Dx_HPV)
     cancer$Dx <- as.factor(cancer$Dx)
     cancer$Hinselmann <- as.factor(cancer$Hinselmann)
-    cancer$Schiller <- as.factor(cancer$Schiller)
     cancer$Citology <- as.factor(cancer$Citology)
     cancer$Biopsy <- as.factor(cancer$Biopsy)
-    levels(cancer$Schiller) <- c("Healthy","Cancer")
+    
+    cancer$Schiller <- ifelse(cancer$Schiller == 1, "Case", "Control")
+    cancer$Schiller <- as.factor(cancer$Schiller)
+    
+    # Reordering level of response variable
+    cancer$Schiller = factor(cancer$Schiller,levels(cancer$Schiller)[c(2,1)])
     
     # Dropping columns that have more than 60% NAs and columns that have only one level 
     cancer <- subset(cancer, select = -c(STDs_cervical_condylomatosis, STDs_AIDS, STDs_Time_since_first_diagnosis,
@@ -346,11 +353,11 @@ server <- function(input, output){
             })
             
             output$pred <- renderPrint({
-              predict(mode_glm, newdata = testing[ ,1:8])
+              predict(mode_glm, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mode_glm, testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mode_glm, testing), testing$response, positive = "Case")
             })
             
             output$contents3 <- renderTable({
@@ -370,11 +377,11 @@ server <- function(input, output){
             })
             
             output$pred <- renderPrint({
-              predict(mode_glm, newdata = testing[ ,1:8])
+              predict(mode_glm, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mode_glm, testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mode_glm, testing), testing$response, positive = "Case")
             })
           }   
         }
@@ -388,21 +395,20 @@ server <- function(input, output){
                                        shrinkage = c(0.01, 0.1),
                                        n.minobsinnode = c(10,20))
                
-               mode_gbm <- train(response ~ ., method = "gbm", tuneGrid = gbmGrid, metric ="ROC", data = training, 
-                                trControl = trainControl(summaryFunction=twoClassSummary,classProbs = TRUE,
-                                                         method = input$mvar2, number = as.numeric(input$mvar3), 
-                                                         repeats = as.numeric(input$mvar4), preProc = "range", sampling = "up"))
+               mode_gbm <- train(response ~ ., method = "gbm", tuneGrid = gbmGrid, metric ="Accuracy", data = training, 
+                                trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
+                                                         repeats = as.numeric(input$mvar4), sampling = "up"))
                
                output$contents2 <- renderPrint({
                  mode_gbm
                })
                
                output$pred <- renderPrint({
-                 predict(mode_gbm, newdata = testing[ ,1:8])
+                 predict(mode_gbm, newdata = testing)
                })
                
                output$conf <- renderPrint({
-                 confusionMatrix(predict(mode_gbm, newdata = testing[ ,1:8]), testing$response)
+                 confusionMatrix(predict(mode_gbm, newdata = testing), testing$response, positive = "Case")
                })
                output$contents3 <- renderTable({
                  training
@@ -417,39 +423,37 @@ server <- function(input, output){
                                        n.minobsinnode = c(10,20))
                
                mode_gbm <- train(response ~ ., data = training, method = "gbm",
-                                 trControl= trainControl(summaryFunction=twoClassSummary,classProbs = TRUE,
-                                                         method = input$mvar2, number = as.numeric(input$mvar3), sampling = "up"),
-                                 preProcess = "range", metric = "ROC", tuneGrid = gbmGrid)
+                                 trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), sampling = "up"),
+                                 metric = "Accuracy", tuneGrid = gbmGrid)
             
                output$contents2 <- renderPrint({
                  mode_gbm
                })
             
                output$pred <- renderPrint({
-                 predict(mode_gbm, newdata = testing[ ,1:8])
+                 predict(mode_gbm, newdata = testing)
                })
             
                output$conf <- renderPrint({
-                 confusionMatrix(predict(mode_gbm, newdata = testing[ ,1:8]), testing$response)
+                 confusionMatrix(predict(mode_gbm, newdata = testing), testing$response, positive = "Case")
                })
              } 
           
              else{ 
                    
                mode_gbm <- train(response ~ ., method = "gbm", metric ="Accuracy", data = training, 
-                                trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
-                                                         preProc = "range", sampling = "up"))
+                                trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), sampling = "up"))
                     
                output$contents2 <- renderPrint({
                  mode_gbm
                })
                
                output$pred <- renderPrint({
-                 predict(mode_gbm, newdata = testing[ ,1:8])
+                 predict(mode_gbm, newdata = testing)
                })   
                    
                output$conf <- renderPrint({
-                 confusionMatrix(predict(mode_gbm, newdata = testing[ ,1:8]), testing$response)
+                 confusionMatrix(predict(mode_gbm, newdata = testing), testing$response, positive = "Case")
                })
              }
         }
@@ -462,18 +466,18 @@ server <- function(input, output){
             mode_svm_Linear <- train(response ~ ., data = training, method = "svmLinear",
                                      trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
                                                              repeats = as.numeric(input$mvar4), sampling = "up"),
-                                     preProcess = "range", metric = "Accuracy", tuneGrid = grid, tuneLength = 10)
+                                     preProcess = c("center","scale"), metric = "Accuracy", tuneGrid = grid, tuneLength = 10)
             
             output$contents2 <- renderPrint({
               mode_svm_Linear
             })
             
             output$pred <- renderPrint({
-              predict(mode_svm_Linear, newdata = testing[ ,1:8])
+              predict(mode_svm_Linear, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mode_svm_Linear, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mode_svm_Linear, newdata = testing), testing$response, positive = "Case")
             })
             output$contents3 <- renderTable({
               training
@@ -485,18 +489,18 @@ server <- function(input, output){
             grid <- expand.grid(C = c(0.005,0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2,5))
             mode_svm_Linear <- train(response ~ ., data = training, method = "svmLinear",
                                      trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), sampling = "up"),
-                                     preProcess = "range", metric = "Accuracy", tuneGrid = grid, tuneLength = 10)
+                                     preProcess = c("center","scale"), metric = "Accuracy", tuneGrid = grid, tuneLength = 10)
             
             output$contents2 <- renderPrint({
               mode_svm_Linear
             })
             
             output$pred <- renderPrint({
-              predict(mode_svm_Linear, newdata = testing[ ,1:8])
+              predict(mode_svm_Linear, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mode_svm_Linear, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mode_svm_Linear, newdata = testing), testing$response, positive = "Case")
             })
           } 
             
@@ -504,18 +508,18 @@ server <- function(input, output){
             
             mode_svm_Linear <- train(response ~ ., data = training, method = "svmLinear",
                                      trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
-                                                             sampling = "up"), preProcess = "range", metric = "Accuracy")
+                                                             sampling = "up"), preProcess = c("center","scale"), metric = "Accuracy")
             
             output$contents2 <- renderPrint({
               mode_svm_Linear
             })
             
             output$pred <- renderPrint({
-              predict(mode_svm_Linear, newdata = testing[ ,1:8])
+              predict(mode_svm_Linear, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mode_svm_Linear, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mode_svm_Linear, newdata = testing), testing$response, positive = "Case")
             })
           }
         }
@@ -550,16 +554,16 @@ server <- function(input, output){
         if(input$ml == "Logistic Regression"){
           
           if(input$mvar2 == "repeatedcv"){
-            median_glm <- train(response ~ ., method = "glm", family = "binomial", data = training,
+            median_glm <- train(response ~ ., method = "glm", metric = "Accuracy", family = "binomial", data = training,
                                 trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
                                                          repeats = as.numeric(input$mvar4), sampling = "up"))
             
             output$pred <- renderPrint({
-              predict(median_glm, newdata = testing[ ,1:8])
+              predict(median_glm, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(median_glm, testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(median_glm, testing), testing$response, positive = "Case")
             })
             
             output$contents2 <- renderPrint({
@@ -571,16 +575,16 @@ server <- function(input, output){
           }
           
           else{
-            median_glm <- train(response ~ ., method = "glm", family = "binomial", data = training,
+            median_glm <- train(response ~ ., method = "glm", metric = "Accuracy", family = "binomial", data = training,
                                 trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
                                                          sampling = "up"))
             
             output$pred <- renderPrint({
-              predict(median_glm, newdata = testing[ ,1:8])
+              predict(median_glm, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(median_glm, testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(median_glm, testing), testing$response, positive = "Case")
             })
             
             output$contents2 <- renderPrint({
@@ -598,21 +602,20 @@ server <- function(input, output){
                                     shrinkage = c(0.01, 0.1),
                                     n.minobsinnode = c(10,20))
             
-            median_gbm <- train(response ~ ., method = "gbm", tuneGrid = gbmGrid, metric ="ROC", data = training, 
-                              trControl = trainControl(summaryFunction=twoClassSummary,classProbs = TRUE,
-                                                       method = input$mvar2, number = as.numeric(input$mvar3), 
-                                                       repeats = as.numeric(input$mvar4), preProc = "range", sampling = "up"))
+            median_gbm <- train(response ~ ., method = "gbm", tuneGrid = gbmGrid, metric ="Accuracy", data = training, 
+                              trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
+                                                       repeats = as.numeric(input$mvar4), sampling = "up"))
             
             output$contents2 <- renderPrint({
               median_gbm
             })
             
             output$pred <- renderPrint({
-              predict(median_gbm, newdata = testing[ ,1:8])
+              predict(median_gbm, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(median_gbm, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(median_gbm, newdata = testing), testing$response, positive = "Case")
             })
             output$contents3 <- renderTable({
               training
@@ -627,20 +630,19 @@ server <- function(input, output){
                                     n.minobsinnode = c(10,20))
             
             median_gbm <- train(response ~ ., data = training, method = "gbm",
-                              trControl= trainControl(summaryFunction=twoClassSummary,classProbs = TRUE,
-                                                      method = input$mvar2, number = as.numeric(input$mvar3), sampling = "up"),
-                              preProcess = "range", metric = "ROC", tuneGrid = gbmGrid)
+                              trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), sampling = "up"),
+                              metric = "Accuracy", tuneGrid = gbmGrid)
             
             output$contents2 <- renderPrint({
               median_gbm
             })
             
             output$pred <- renderPrint({
-              predict(median_gbm, newdata = testing[ ,1:8])
+              predict(median_gbm, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(median_gbm, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(median_gbm, newdata = testing), testing$response, positive = "Case")
             })
           } 
           
@@ -648,18 +650,18 @@ server <- function(input, output){
             
             median_gbm <- train(response ~ ., method = "gbm", metric ="Accuracy", data = training, 
                               trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
-                                                       preProc = "range", sampling = "up"))
+                                                       sampling = "up"))
             
             output$contents2 <- renderPrint({
               median_gbm
             })
             
             output$pred <- renderPrint({
-              predict(median_gbm, newdata = testing[ ,1:8])
+              predict(median_gbm, newdata = testing)
             })   
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(median_gbm, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(median_gbm, newdata = testing), testing$response, positive = "Case")
             })
           }
         }
@@ -671,14 +673,14 @@ server <- function(input, output){
             median_svm_Linear <- train(response ~ ., data = training, method = "svmLinear",
                                        trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
                                                                repeats = as.numeric(input$mvar4), sampling = "up"), tuneGrid = grid,
-                                       preProcess = "range", metric = "Accuracy", tuneLength = 10)
+                                       preProcess = c("center","scale"), metric = "Accuracy", tuneLength = 10)
             
             output$pred <- renderPrint({
-              predict(median_svm_Linear, newdata = testing[ ,1:8])
+              predict(median_svm_Linear, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(median_svm_Linear, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(median_svm_Linear, newdata = testing), testing$response, positive = "Case")
             })
             
             output$contents2 <- renderPrint({
@@ -694,14 +696,14 @@ server <- function(input, output){
             median_svm_Linear <- train(response ~ ., data = training, method = "svmLinear",
                                        trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
                                                                sampling = "up"), tuneGrid = grid,
-                                       preProcess = "range", metric = "Accuracy", tuneLength = 10)
+                                       preProcess = c("center","scale"), metric = "Accuracy", tuneLength = 10)
             
             output$pred <- renderPrint({
-              predict(median_svm_Linear, newdata = testing[ ,1:8])
+              predict(median_svm_Linear, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(median_svm_Linear, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(median_svm_Linear, newdata = testing), testing$response, positive = "Case")
             })
             
             output$contents2 <- renderPrint({
@@ -715,14 +717,14 @@ server <- function(input, output){
           else{
             median_svm_Linear <- train(response ~ ., data = training, method = "svmLinear",
                                        trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
-                                                               sampling = "up"), preProcess = "range", metric = "Accuracy")
+                                                               sampling = "up"), preProcess = c("center","scale"), metric = "Accuracy")
             
             output$pred <- renderPrint({
-              predict(median_svm_Linear, newdata = testing[ ,1:8])
+              predict(median_svm_Linear, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(median_svm_Linear, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(median_svm_Linear, newdata = testing), testing$response, positive = "Case")
             })
             
             output$contents2 <- renderPrint({
@@ -737,52 +739,42 @@ server <- function(input, output){
       
       # Performing mean imputation
       if(input$method == "Mean"){
-        # Imputing variables that will be used for modeling using mean
-        X$Number_of_sexual_partners[is.na(X$Number_of_sexual_partners)] <- mean(X$Number_of_sexual_partners, na.rm = TRUE)
-        X$First_sexual_intercourse[is.na(X$First_sexual_intercourse)] <- mean(X$First_sexual_intercourse, na.rm = TRUE)
-        X$Num_of_pregnancies[is.na(X$Num_of_pregnancies)] <- mean(X$Num_of_pregnancies, na.rm = TRUE)
-        X$Smokes[is.na(X$Smokes)] <- mean(X$Smokes, na.rm = TRUE)
-        X$Hormonal_Contraceptives[is.na(X$Hormonal_Contraceptives)] <- mean(X$Hormonal_Contraceptives, na.rm = TRUE)
-        X$IUD[is.na(X$IUD)] <- mean(X$IUD, na.rm = TRUE)
-        X$STDs[is.na(X$STDs)] <- mean(X$STDs, na.rm = TRUE)
+
+        # Imputing variables in the training data using mean
+        training$Number_of_sexual_partners[is.na(training$Number_of_sexual_partners)] <- mean(training$Number_of_sexual_partners, na.rm = TRUE)
+        training$First_sexual_intercourse[is.na(training$First_sexual_intercourse)] <- mean(training$First_sexual_intercourse, na.rm = TRUE)
+        training$Num_of_pregnancies[is.na(training$Num_of_pregnancies)] <- mean(training$Num_of_pregnancies, na.rm = TRUE)
+        training$Smokes[is.na(training$Smokes)] <- mean(training$Smokes, na.rm = TRUE)
+        training$Hormonal_Contraceptives[is.na(training$Hormonal_Contraceptives)] <- mean(training$Hormonal_Contraceptives, na.rm = TRUE)
+        training$IUD[is.na(training$IUD)] <- mean(training$IUD, na.rm = TRUE)
+        training$STDs[is.na(training$STDs)] <- mean(training$STDs, na.rm = TRUE)
         
-        response <- cancer$Schiller
+        # Imputing variables in the testing data using mean
+        testing$Number_of_sexual_partners[is.na(testing$Number_of_sexual_partners)] <- mean(testing$Number_of_sexual_partners, na.rm = TRUE)
+        testing$First_sexual_intercourse[is.na(testing$First_sexual_intercourse)] <- mean(testing$First_sexual_intercourse, na.rm = TRUE)
+        testing$Num_of_pregnancies[is.na(testing$Num_of_pregnancies)] <- mean(testing$Num_of_pregnancies, na.rm = TRUE)
+        testing$Smokes[is.na(testing$Smokes)] <- mean(testing$Smokes, na.rm = TRUE)
+        testing$Hormonal_Contraceptives[is.na(testing$Hormonal_Contraceptives)] <- mean(testing$Hormonal_Contraceptives, na.rm = TRUE)
+        testing$IUD[is.na(testing$IUD)] <- mean(testing$IUD, na.rm = TRUE)
+        testing$STDs[is.na(testing$STDs)] <- mean(testing$STDs, na.rm = TRUE)
         
-        # Making the result reproducible
-        set.seed(800)
-        
-        # Train test split
-        df <- cbind(X, response)
-        index <- createDataPartition(y = df$response, p = as.numeric(input$mvar), list = FALSE)
-        training <- df[index,]
-        testing  <- df[-index,]
-        
-        output$contents <- renderTable({
-          X
-        })
-        
-        output$view <- renderPrint({
-          summary(X)
-        })
-        
-        output$view2 <- renderPrint({
-          cor_X <- cor(X, use= "pairwise.complete.obs", method = "spearman")
-          cor_X
+        output$contents3 <- renderTable({
+          training
         })
         
         if(input$ml == "Logistic Regression"){
           
           if(input$mvar2 == "repeatedcv"){
-            mean_glm <- train(response ~ ., method = "glm", family = "binomial", data = training,
+            mean_glm <- train(response ~ ., method = "glm", metric = "Accuracy", family = "binomial", data = training,
                               trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
                                                        repeats = as.numeric(input$mvar4), sampling = "up"))
             
             output$pred <- renderPrint({
-              predict(mean_glm, newdata = testing[ ,1:8])
+              predict(mean_glm, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mean_glm, testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mean_glm, testing), testing$response, positive = "Case")
             })
             
             output$contents2 <- renderPrint({
@@ -790,16 +782,16 @@ server <- function(input, output){
             })
           }
           else{
-            mean_glm <- train(response ~ ., method = "glm", family = "binomial", data = training,
+            mean_glm <- train(response ~ ., method = "glm", metric = "Accuracy", family = "binomial", data = training,
                               trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
                                                        sampling = "up"))
             
             output$pred <- renderPrint({
-              predict(mean_glm, newdata = testing[ ,1:8])
+              predict(mean_glm, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mean_glm, testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mean_glm, testing), testing$response, positive = "Case")
             })
             
             output$contents2 <- renderPrint({
@@ -817,21 +809,20 @@ server <- function(input, output){
                                     shrinkage = c(0.01, 0.1),
                                     n.minobsinnode = c(10,20))
             
-            mean_gbm <- train(response ~ ., method = "gbm", tuneGrid = gbmGrid, metric ="ROC", data = training, 
-                                trControl = trainControl(summaryFunction=twoClassSummary,classProbs = TRUE,
-                                                         method = input$mvar2, number = as.numeric(input$mvar3), 
-                                                         repeats = as.numeric(input$mvar4), preProc = "range", sampling = "up"))
+            mean_gbm <- train(response ~ ., method = "gbm", tuneGrid = gbmGrid, metric ="Accuracy", data = training, 
+                                trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
+                                                         repeats = as.numeric(input$mvar4), sampling = "up"))
             
             output$contents2 <- renderPrint({
               mean_gbm
             })
             
             output$pred <- renderPrint({
-              predict(mean_gbm, newdata = testing[ ,1:8])
+              predict(mean_gbm, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mean_gbm, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mean_gbm, newdata = testing), testing$response, positive = "Case")
             })
             output$contents3 <- renderTable({
               training
@@ -846,39 +837,38 @@ server <- function(input, output){
                                     n.minobsinnode = c(10,20))
             
             mean_gbm <- train(response ~ ., data = training, method = "gbm",
-                                trControl= trainControl(summaryFunction=twoClassSummary,classProbs = TRUE,
-                                                        method = input$mvar2, number = as.numeric(input$mvar3), sampling = "up"),
-                                preProcess = "range", metric = "ROC", tuneGrid = gbmGrid)
+                                trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), sampling = "up"),
+                                metric = "Accuracy", tuneGrid = gbmGrid)
             
             output$contents2 <- renderPrint({
               mean_gbm
             })
             
             output$pred <- renderPrint({
-              predict(mean_gbm, newdata = testing[ ,1:8])
+              predict(mean_gbm, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mean_gbm, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mean_gbm, newdata = testing), testing$response, positive = "Case")
             })
           } 
           
           else{ 
             
-            mean_gbm <- train(response ~ ., method = "gbm", metric ="Accuracy", data = training, 
+            mean_gbm <- train(response ~ ., method = "gbm", metric = "Accuracy", data = training, 
                                 trControl = trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
-                                                         preProc = "range", sampling = "up"))
+                                                         sampling = "up"))
             
             output$contents2 <- renderPrint({
               mean_gbm
             })
             
             output$pred <- renderPrint({
-              predict(mean_gbm, newdata = testing[ ,1:8])
+              predict(mean_gbm, newdata = testing)
             })   
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mean_gbm, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mean_gbm, newdata = testing), testing$response, positive = "Case")
             })
           }
         }
@@ -889,14 +879,14 @@ server <- function(input, output){
             mean_svm_Linear <- train(response ~ ., data = training, method = "svmLinear",
                                        trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
                                                                repeats = as.numeric(input$mvar4), sampling = "up"), tuneGrid = grid,
-                                       preProcess = "range", metric = "Accuracy", tuneLength = 10)
+                                       preProcess = c("center","scale"), metric = "Accuracy", tuneLength = 10)
             
             output$pred <- renderPrint({
-              predict(mean_svm_Linear, newdata = testing[ ,1:8])
+              predict(mean_svm_Linear, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mean_svm_Linear, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mean_svm_Linear, newdata = testing), testing$response, positive = "Case")
             })
             
             output$contents2 <- renderPrint({
@@ -912,14 +902,14 @@ server <- function(input, output){
             mean_svm_Linear <- train(response ~ ., data = training, method = "svmLinear",
                                        trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
                                                                sampling = "up"), tuneGrid = grid,
-                                       preProcess = "range", metric = "Accuracy", tuneLength = 10)
+                                       preProcess = c("center","scale"), metric = "Accuracy", tuneLength = 10)
             
             output$pred <- renderPrint({
-              predict(mean_svm_Linear, newdata = testing[ ,1:8])
+              predict(mean_svm_Linear, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mean_svm_Linear, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mean_svm_Linear, newdata = testing), testing$response, positive = "Case")
             })
             
             output$contents2 <- renderPrint({
@@ -933,14 +923,14 @@ server <- function(input, output){
           else{
             mean_svm_Linear <- train(response ~ ., data = training, method = "svmLinear",
                                        trControl= trainControl(method = input$mvar2, number = as.numeric(input$mvar3), 
-                                                               sampling = "up"), preProcess = "range", metric = "Accuracy")
+                                                               sampling = "up"), preProcess = c("center","scale"), metric = "Accuracy")
             
             output$pred <- renderPrint({
-              predict(mean_svm_Linear, newdata = testing[ ,1:8])
+              predict(mean_svm_Linear, newdata = testing)
             })
             
             output$conf <- renderPrint({
-              confusionMatrix(predict(mean_svm_Linear, newdata = testing[ ,1:8]), testing$response)
+              confusionMatrix(predict(mean_svm_Linear, newdata = testing), testing$response, positive = "Case")
             })
             
             output$contents2 <- renderPrint({
