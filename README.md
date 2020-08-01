@@ -6,7 +6,7 @@
 
 <b> 1. Dataset download link: https://archive.ics.uci.edu/ml/machine-learning-databases/00383/risk_factors_cervical_cancer.csv </b>
 
-<b> 2. Link to view the shiny app: http://127.0.0.1:6201/ </b>
+<b> 2. Link to view the shiny app: https://dashyanngkachru.shinyapps.io/source_code/ </b>
 
 <b> Data Set Information: </b>
 
